@@ -37,6 +37,8 @@ Alternatively, you can SSH into the device (using the Site's SSH
 credentials) and look for a line `mgmt.authkey=<32 hex digits>` in
 `/var/etc/persisted/cfg/mgmt`. Note: each device has a different key.
 
+## Installation
+
 The binary is easily obtained with this command (assuming you have the
 Go toolchain installed):
 
@@ -47,6 +49,7 @@ go get github.com/dmke/inform-inspect/cmd/inform-inspect
 This puts `inform-inspect` into `$GOPATH/bin`, which then can be called
 with the AES key and the path to a filename containing the HTTP body of
 the inform request:
+
 
 ```
 $GOPATH/bin/inform-inspect abcdef0123456789abcdef0123456789 /path/to/inform.dat
