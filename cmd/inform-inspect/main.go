@@ -32,10 +32,6 @@ func main() {
 		log.Fatalf("cannot read packet: %v", err)
 	}
 
-	if len(pkt.Payload) == 0 {
-		log.Printf("no payload found")
-	}
-
 	data, err := pkt.Data(aesKey)
 	if err != nil {
 		log.Printf("error decrypting packet: %v", err)

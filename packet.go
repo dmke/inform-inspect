@@ -4,7 +4,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"net"
 
@@ -22,63 +21,6 @@ type Packet struct {
 	Payload        []byte           // payload (usually JSON)
 }
 
-type fieldName byte
-
-const (
-	hMagic fieldName = iota
-	hPacketVersion
-	hMAC
-	hFlags
-	hIV
-	hPayloadVersion
-	hPayloadLength
-)
-
-func (f fieldName) String() string {
-	switch f {
-	case hMagic:
-		return "Magic"
-	case hPacketVersion:
-		return "PacketVersion"
-	case hMAC:
-		return "MAC"
-	case hFlags:
-		return "Flags"
-	case hIV:
-		return "IV"
-	case hPayloadVersion:
-		return "PayloadVersion"
-	case hPayloadLength:
-		return "PayloadLength"
-	}
-	return fmt.Sprintf("%%!unknown(%02x)", byte(f))
-}
-
-type flags uint16
-
-// Various packet flags
-const (
-	Encrypted        flags = 1 << iota // packet's payload is encrypted
-	Compressed                         // the packet's payload is compressed
-	SnappyCompressed                   // payload is compressed with Google's snappy algorithm
-)
-
-// fields statically describes the field lengths
-var fields = []struct {
-	name   fieldName
-	length int
-}{
-	{hMagic, 4},
-	{hPacketVersion, 4},
-	{hMAC, 6},
-	{hFlags, 2},
-	{hIV, 16},
-	{hPayloadVersion, 4},
-	{hPayloadLength, 4},
-}
-
-const hlen = 4 + 4 + 6 + 2 + 16 + 4 + 4
-
 // ReadPacket tries to decode the input into a Packet instance.
 //
 // The reader is read from twice: once to fetch the header (which has a
@@ -90,31 +32,28 @@ const hlen = 4 + 4 + 6 + 2 + 16 + 4 + 4
 // its payload directly, but use the Data() function, which takes care
 // of decrypting and decompressing (if necessary).
 func ReadPacket(r io.Reader) (*Packet, error) {
-	head := make([]byte, hlen)
+	head := make([]byte, headerLength)
 	n, err := r.Read(head)
 	if err != nil {
 		return nil, err
 	}
-	if n != hlen {
+	if n != headerLength {
 		return nil, errIncompletePacket("header too short")
 	}
 
 	off := 0
 	pkt := &Packet{}
-	for _, f := range fields {
+	for _, f := range fieldOrder {
 		curr := head[off : off+f.length]
 		switch f.name {
-		case hMagic:
+		case headerMagic:
 			if string(curr) != "UBNT" {
 				return nil, errInvalidMagic
 			}
-		case hPayloadLength:
+		case headerPayloadLength:
 			val := binary.BigEndian.Uint32(curr)
 			pkt.Payload = make([]byte, val)
-		}
-
-		if f.name == hPayloadLength {
-		} else {
+		default:
 			pkt.update(f.name, curr)
 		}
 		off += f.length
@@ -132,17 +71,17 @@ func ReadPacket(r io.Reader) (*Packet, error) {
 }
 
 // update applies a partial update of the field with the given name.
-func (p *Packet) update(name fieldName, data []byte) {
+func (p *Packet) update(name headerField, data []byte) {
 	switch name {
-	case hPacketVersion:
+	case headerPacketVersion:
 		p.PacketVersion = binary.BigEndian.Uint32(data)
-	case hMAC:
+	case headerMAC:
 		p.MAC = net.HardwareAddr(data)
-	case hFlags:
+	case headerFlags:
 		p.Flags = flags(binary.BigEndian.Uint16(data))
-	case hIV:
+	case headerIV:
 		p.IV = data
-	case hPayloadVersion:
+	case headerPayloadVersion:
 		p.PayloadVersion = binary.BigEndian.Uint32(data)
 	}
 }
