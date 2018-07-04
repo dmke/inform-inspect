@@ -47,8 +47,8 @@ go get github.com/dmke/inform-inspect/cmd/inform-inspect
 ```
 
 This puts `inform-inspect` into `$GOPATH/bin`, which then can be called
-with the AES key and the path to a filename containing the HTTP body of
-the inform request:
+with the AES key and the path to a file containing the HTTP body of the
+inform request:
 
 
 ```
