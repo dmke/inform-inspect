@@ -31,5 +31,5 @@ func (err errIncompletePacket) Error() string {
 
 var (
 	errInvalidKey   = errors.New("invalid key: must be 16 bytes long")
-	errInvalidMagic = errors.New("invalid packet: must begin with 'UBNT'")
+	errInvalidMagic = errors.New("invalid packet: must begin with 'TNBU'")
 )

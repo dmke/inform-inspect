@@ -47,7 +47,7 @@ func ReadPacket(r io.Reader) (*Packet, error) {
 		curr := head[off : off+f.length]
 		switch f.name {
 		case headerMagic:
-			if string(curr) != "UBNT" {
+			if string(curr) != "TNBU" {
 				return nil, errInvalidMagic
 			}
 		case headerPayloadLength:
