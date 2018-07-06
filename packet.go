@@ -102,7 +102,7 @@ func (p *Packet) Data(key []byte) (res []byte, err error) {
 
 	if p.Flags&SnappyCompressed != 0 {
 		if res, err = deflate(res); err != nil {
-			return nil, nil
+			return nil, err
 		}
 	}
 
@@ -111,7 +111,7 @@ func (p *Packet) Data(key []byte) (res []byte, err error) {
 
 // deflate decompresses data
 func deflate(data []byte) ([]byte, error) {
-	return snappy.Decode(nil, data[:len(data)-10])
+	return snappy.Decode(nil, data)
 }
 
 // decrypt decodes the payload with the given key. The key must be 16
