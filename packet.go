@@ -1,6 +1,8 @@
 package inform // import "github.com/dmke/inform-inspect"
 
 import (
+	"bytes"
+	"compress/zlib"
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/binary"
@@ -97,7 +99,10 @@ func (p *Packet) Data(key []byte) (res []byte, err error) {
 	}
 
 	if p.Flags&Compressed != 0 {
-		return nil, errFlagNotSupported("compressed")
+		r := bytes.NewReader(res)
+		if res, err = decompress(r); err != nil {
+			return nil, err
+		}
 	}
 
 	if p.Flags&SnappyCompressed != 0 {
@@ -151,4 +156,19 @@ func pkcs7unpad(b []byte) ([]byte, error) {
 		}
 	}
 	return b[:len(b)-n], nil
+}
+
+// decompress data using zlib.
+func decompress(r io.Reader) ([]byte, error) {
+	z, err := zlib.NewReader(r)
+	if err != nil {
+		return nil, err
+	}
+	defer z.Close()
+
+	var res bytes.Buffer
+	if _, err = io.Copy(&res, z); err != nil {
+		return nil, err
+	}
+	return res.Bytes(), nil
 }
