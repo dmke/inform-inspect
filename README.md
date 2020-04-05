@@ -1,3 +1,16 @@
+> **Note: With the release of Unifi SDN Controller version 5.12.x the
+> inform package format has changed. As of now, the encryption scheme is
+> unknown and hence this package is considered defunkt.**
+>
+> This basically affects all firmwares since at least v4.0.20 (maybe
+> even earlier versions).
+>
+> Feel free to [open a new issue][] if you find clues on how to decipher
+> current inform packages.
+
+[open a new issue]: https://github.com/dmke/inform-inspect/issues/new
+
+
 # inform-inspect
 
 Inspector for Ubiquiti Unifi Inform Pakets. Useful for debugging or
@@ -92,7 +105,7 @@ This builds upon protocol details gathered by [Mike Crute][mcrute] and
 - <https://github.com/mcrute/ubntmfi/blob/master/inform_protocol.md>
 - <https://github.com/jk-5/unifi-inform-protocol>
 
-I'd also like to thank Redditor [/u//CornerAssignment][CornerAssignment]
+I'd also like to thank Redditor [/u/CornerAssignment][CornerAssignment]
 for pointing me in the right direction when I was stuck identifying the
 compression mechanism and not realizing the padding was still attached
 to the cleartext stream.
