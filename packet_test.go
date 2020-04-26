@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestInvalidPacket(t *testing.T) {
@@ -21,31 +22,60 @@ func TestInvalidPacket(t *testing.T) {
 }
 
 func TestDecode(t *testing.T) {
-	assert := assert.New(t)
-	mac := "f0:9f:c2:79:63:90"
-	key, _ := hex.DecodeString("e2c930683af3945e4d0d58d37a78c2a6")
+	tt := []struct {
+		datFile string
+		hexKey  string
 
-	dat, err := ioutil.ReadFile("testdata/request")
-	assert.NoError(err)
+		flags        flags
+		mac          string
+		firmware     string
+		model        string
+		modelDisplay string
+	}{
+		{
+			datFile: "testdata/aes_snappy.dat",
+			hexKey:  "e2c930683af3945e4d0d58d37a78c2a6",
 
-	packet, err := ReadPacket(bytes.NewReader(dat))
-	assert.NoError(err)
-	assert.NotNil(packet)
+			flags:        Encrypted | SnappyCompressed,
+			mac:          "f0:9f:c2:79:63:90",
+			firmware:     "3.9.27.8537",
+			model:        "U7PG2",
+			modelDisplay: "UAP-AC-Pro-Gen2",
+		},
+	}
 
-	assert.Equal(mac, packet.MAC.String())
-	assert.EqualValues(0, packet.PacketVersion)
-	assert.EqualValues(1, packet.PayloadVersion)
+	for i := range tt {
+		tc := tt[i]
+		t.Run(tc.datFile, func(t *testing.T) {
+			assert, require := assert.New(t), require.New(t)
 
-	invalidKey, _ := hex.DecodeString("11111111111111111111111111111111")
-	_, err = packet.Data(invalidKey)
-	assert.EqualError(err, "invalid padding: structure invalid")
+			dat, err := ioutil.ReadFile(tc.datFile)
+			require.NoError(err)
 
-	data, err := packet.Data(key)
-	assert.NoError(err)
+			packet, err := ReadPacket(bytes.NewReader(dat))
+			require.NoError(err)
+			require.NotNil(packet)
 
-	jsonData := make(map[string]interface{})
-	assert.NoError(json.Unmarshal(data, &jsonData))
-	assert.Equal("3.9.27.8537", jsonData["version"])
-	assert.Equal("U7PG2", jsonData["model"])
-	assert.Equal("UAP-AC-Pro-Gen2", jsonData["model_display"])
+			assert.Equal(tc.mac, packet.MAC.String())
+			assert.EqualValues(0, packet.PacketVersion)
+			assert.EqualValues(1, packet.PayloadVersion)
+			assert.Equal(tc.flags, packet.Flags)
+
+			invalidKey, err := hex.DecodeString("11111111111111111111111111111111")
+			require.NoError(err)
+			_, err = packet.Data(invalidKey)
+			assert.EqualError(err, "invalid padding: structure invalid")
+
+			validKey, err := hex.DecodeString(tc.hexKey)
+			require.NoError(err)
+			data, err := packet.Data(validKey)
+			require.NoError(err)
+
+			jsonData := make(map[string]interface{})
+			assert.NoError(json.Unmarshal(data, &jsonData))
+			assert.Equal(tc.firmware, jsonData["version"])
+			assert.Equal(tc.model, jsonData["model"])
+			assert.Equal(tc.modelDisplay, jsonData["model_display"])
+		})
+	}
 }
