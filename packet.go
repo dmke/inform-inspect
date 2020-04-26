@@ -92,21 +92,21 @@ func (p *Packet) update(name headerField, data []byte) {
 func (p *Packet) Data(key []byte) (res []byte, err error) {
 	res = p.Payload
 
-	if p.Flags&Encrypted != 0 {
-		if res, err = decrypt(key, p.IV, p.Payload); err != nil {
+	if p.Flags&AESEncrypted != 0 {
+		if res, err = aesDecrypt(key, p.IV, p.Payload); err != nil {
 			return nil, err
 		}
 	}
 
-	if p.Flags&Compressed != 0 {
+	if p.Flags&ZlibCompressed != 0 {
 		r := bytes.NewReader(res)
-		if res, err = decompress(r); err != nil {
+		if res, err = zlibDecompress(r); err != nil {
 			return nil, err
 		}
 	}
 
 	if p.Flags&SnappyCompressed != 0 {
-		if res, err = deflate(res); err != nil {
+		if res, err = snappyDecompress(res); err != nil {
 			return nil, err
 		}
 	}
@@ -114,14 +114,14 @@ func (p *Packet) Data(key []byte) (res []byte, err error) {
 	return
 }
 
-// deflate decompresses data
-func deflate(data []byte) ([]byte, error) {
+// snappyDecompress deflates data using Snappy.
+func snappyDecompress(data []byte) ([]byte, error) {
 	return snappy.Decode(nil, data)
 }
 
-// decrypt decodes the payload with the given key. The key must be 16
+// aesDecrypt decodes the payload with the given key. The key must be 16
 // bytes long.
-func decrypt(key, iv, data []byte) ([]byte, error) {
+func aesDecrypt(key, iv, data []byte) ([]byte, error) {
 	if len(key) != 16 {
 		return nil, errInvalidKey
 	}
@@ -158,8 +158,8 @@ func pkcs7unpad(b []byte) ([]byte, error) {
 	return b[:len(b)-n], nil
 }
 
-// decompress data using zlib.
-func decompress(r io.Reader) ([]byte, error) {
+// zlibDecompress deflates data using zlib.
+func zlibDecompress(r io.Reader) ([]byte, error) {
 	z, err := zlib.NewReader(r)
 	if err != nil {
 		return nil, err

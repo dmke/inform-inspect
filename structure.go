@@ -38,9 +38,12 @@ type flags uint16
 
 // Various packet flags
 const (
-	Encrypted        flags = 1 << iota // packet's payload is encrypted
-	Compressed                         // the packet's payload is compressed
+	AESEncrypted     flags = 1 << iota // packet's payload is AES-CBC encrypted
+	ZlibCompressed                     // the packet's payload is compressed
 	SnappyCompressed                   // payload is compressed with Google's snappy algorithm
+
+	Encrypted  = AESEncrypted   // deprecated: see AESEncrypted
+	Compressed = ZlibCompressed // deprecated: see ZlibCompressed
 )
 
 // fieldOrder statically describes a packet's fields, their order and the

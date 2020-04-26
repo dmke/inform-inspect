@@ -36,7 +36,7 @@ func TestDecode(t *testing.T) {
 			datFile: "testdata/aes_snappy.dat",
 			hexKey:  "e2c930683af3945e4d0d58d37a78c2a6",
 
-			flags:        Encrypted | SnappyCompressed,
+			flags:        AESEncrypted | SnappyCompressed,
 			mac:          "f0:9f:c2:79:63:90",
 			firmware:     "3.9.27.8537",
 			model:        "U7PG2",
