@@ -21,6 +21,8 @@ type Packet struct {
 	Flags          flags            // 0x01 = encrypted, 0x02 = compressed
 	IV             []byte           // AES-128-CBC initialization vector
 	Payload        []byte           // payload (usually JSON)
+
+	rawHeader []byte // rawHeader, needed as AAD for AES-GCM decryption
 }
 
 // ReadPacket tries to decode the input into a Packet instance.
@@ -44,7 +46,7 @@ func ReadPacket(r io.Reader) (*Packet, error) {
 	}
 
 	off := 0
-	pkt := &Packet{}
+	pkt := &Packet{rawHeader: head}
 	for _, f := range fieldOrder {
 		curr := head[off : off+f.length]
 		switch f.name {
@@ -93,7 +95,8 @@ func (p *Packet) Data(key []byte) (res []byte, err error) {
 	res = p.Payload
 
 	if p.Flags&AESEncrypted != 0 {
-		if res, err = aesDecrypt(key, p.IV, p.Payload); err != nil {
+		gcm := p.Flags&GCMMode != 0
+		if res, err = aesDecrypt(key, p, gcm); err != nil {
 			return nil, err
 		}
 	}
@@ -121,20 +124,34 @@ func snappyDecompress(data []byte) ([]byte, error) {
 
 // aesDecrypt decodes the payload with the given key. The key must be 16
 // bytes long.
-func aesDecrypt(key, iv, data []byte) ([]byte, error) {
+func aesDecrypt(key []byte, p *Packet, gcm bool) ([]byte, error) {
 	if len(key) != 16 {
 		return nil, errInvalidKey
 	}
 
-	ciphertext := make([]byte, len(data))
-	copy(ciphertext, data)
-	if len(ciphertext)%aes.BlockSize != 0 {
+	datalen := len(p.Payload)
+	ciphertext := make([]byte, datalen)
+	copy(ciphertext, p.Payload)
+	if !gcm && len(ciphertext)%aes.BlockSize != 0 {
 		return nil, errInvalidPadding("data is not padded")
 	}
 
 	// err would be a crypto.KeySizeError, which is handled above
 	block, _ := aes.NewCipher(key)
-	mode := cipher.NewCBCDecrypter(block, iv)
+
+	if gcm {
+		aead, err := cipher.NewGCMWithNonceSize(block, len(p.IV))
+		if err != nil {
+			return nil, err
+		}
+		plain, err := aead.Open(nil, p.IV, ciphertext, p.rawHeader)
+		if err != nil {
+			return nil, err
+		}
+		return pkcs7unpad(plain)
+	}
+
+	mode := cipher.NewCBCDecrypter(block, p.IV)
 	mode.CryptBlocks(ciphertext, ciphertext)
 
 	return pkcs7unpad(ciphertext)

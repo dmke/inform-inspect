@@ -42,6 +42,16 @@ func TestDecode(t *testing.T) {
 			model:        "U7PG2",
 			modelDisplay: "UAP-AC-Pro-Gen2",
 		},
+		{
+			datFile: "testdata/gcm_snappy.dat",
+			hexKey:  "05223125e6b44aca0a0599551168d766",
+
+			flags:        AESEncrypted | GCMMode | ZlibCompressed,
+			mac:          "fc:ec:da:fc:c5:35",
+			firmware:     "4.0.66.10832",
+			model:        "U7PG2",
+			modelDisplay: "UAP-AC-Pro-Gen2",
+		},
 	}
 
 	for i := range tt {
@@ -51,6 +61,8 @@ func TestDecode(t *testing.T) {
 
 			dat, err := ioutil.ReadFile(tc.datFile)
 			require.NoError(err)
+
+			t.Logf("package contents\n%s\n", hex.Dump(dat))
 
 			packet, err := ReadPacket(bytes.NewReader(dat))
 			require.NoError(err)
