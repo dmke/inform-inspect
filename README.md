@@ -56,16 +56,16 @@ The binary is easily obtained with this command (assuming you have the
 Go toolchain installed):
 
 ```
-go get github.com/dmke/inform-inspect/cmd/inform-inspect
+go install github.com/dmke/inform-inspect/cmd/inform-inspect@latest
 ```
 
-This puts `inform-inspect` into `$GOPATH/bin`, which then can be called
-with the AES key and the path to a file containing the HTTP body of the
-inform request:
+This puts `inform-inspect` into `$(go env GOPATH)/bin`, which then can be
+called with the AES key and the path to a file containing the HTTP body
+of the inform request:
 
 
 ```
-$GOPATH/bin/inform-inspect abcdef0123456789abcdef0123456789 /path/to/inform.dat
+$(go env GOPATH)/bin/inform-inspect abcdef0123456789abcdef0123456789 /path/to/inform.dat
 ```
 
 The program call can have one of three results:
