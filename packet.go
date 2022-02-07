@@ -33,6 +33,8 @@ type Packet struct {
 // The returned Packet is nil if there's an error. You should not access
 // its payload directly, but use the Data() function, which takes care
 // of decrypting and decompressing (if necessary).
+//
+// Use ParsePacket if you have already obtained a full copy of the packet.
 func ReadPacket(r io.Reader) (*Packet, error) {
 	head := make([]byte, headerLength)
 	n, err := r.Read(head)
@@ -43,33 +45,61 @@ func ReadPacket(r io.Reader) (*Packet, error) {
 		return nil, errIncompletePacket("header too short")
 	}
 
-	off := 0
 	pkt := &Packet{}
-	for _, f := range fieldOrder {
-		curr := head[off : off+f.length]
-		switch f.name {
-		case headerMagic:
-			if string(curr) != "TNBU" {
-				return nil, errInvalidMagic
-			}
-		case headerPayloadLength:
-			val := binary.BigEndian.Uint32(curr)
-			pkt.Payload = make([]byte, val)
-		default:
-			pkt.update(f.name, curr)
-		}
-		off += f.length
+	if _, err := pkt.ReadHeader(head); err != nil {
+		return nil, err
 	}
-
-	if len(pkt.Payload) == 0 {
-		return nil, errIncompletePacket("header does not define payload length")
-	}
-
-	if _, err = io.ReadFull(r, pkt.Payload); err != nil {
+	if _, err := io.ReadFull(r, pkt.Payload); err != nil {
 		return nil, errIncompletePacket(err.Error())
 	}
 
 	return pkt, nil
+}
+
+// ParsePacket tries to decode the input into a Packet instance.
+//
+// The returned Packet is nil if there's an error. You should not access
+// its payload directly, but use the Data() function, which takes care
+// of decrypting and decompressing (if necessary).
+//
+// Use ReadPacket if you have an io.Reader.
+func ParsePacket(body []byte) (*Packet, error) {
+	pkt := &Packet{}
+	off, err := pkt.ReadHeader(body)
+	if err != nil {
+		return nil, err
+	}
+
+	copy(pkt.Payload, body[off:])
+	return pkt, nil
+}
+
+func (p *Packet) ReadHeader(head []byte) (n int, err error) {
+	if len(head) < headerLength {
+		return 0, errIncompletePacket("header too short")
+	}
+
+	for _, f := range fieldOrder {
+		curr := head[n : n+f.length]
+		switch f.name {
+		case headerMagic:
+			if string(curr) != "TNBU" {
+				return n, errInvalidMagic
+			}
+		case headerPayloadLength:
+			val := binary.BigEndian.Uint32(curr)
+			p.Payload = make([]byte, val)
+		default:
+			p.update(f.name, curr)
+		}
+		n += f.length
+	}
+
+	if len(p.Payload) == 0 {
+		return n, errIncompletePacket("header does not define payload length")
+	}
+
+	return n, nil
 }
 
 // update applies a partial update of the field with the given name.

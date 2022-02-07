@@ -36,7 +36,7 @@ func (f headerField) String() string {
 
 type flags uint16
 
-// Various packet flags
+// Various packet flags.
 const (
 	AESEncrypted     flags = 1 << iota // packet's payload is AES-CBC encrypted
 	ZlibCompressed                     // the packet's payload is compressed
