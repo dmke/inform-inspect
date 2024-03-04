@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/golang/snappy v0.0.4
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 )
 
 require (
