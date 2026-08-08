@@ -1,9 +1,9 @@
 module github.com/dmke/inform-inspect
 
-go 1.17
+go 1.25
 
 require (
-	github.com/golang/snappy v1.0.0
+	github.com/klauspost/compress v1.19.2
 	github.com/stretchr/testify v1.11.1
 )
 

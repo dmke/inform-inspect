@@ -9,7 +9,7 @@ import (
 	"io"
 	"net"
 
-	"github.com/golang/snappy"
+	"github.com/klauspost/compress/snappy"
 )
 
 // Packet represents an HTTP POST request from an Unifi device to
