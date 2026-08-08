@@ -20,6 +20,26 @@ func TestInvalidPacket(t *testing.T) {
 
 	_, err = ReadPacket(bytes.NewReader([]byte("hello")))
 	assert.EqualError(t, err, "insufficient data: header too short")
+
+	_, err = ParsePacket([]byte("hello"))
+	assert.EqualError(t, err, "insufficient data: header too short")
+
+	_, err = ParsePacket(bytes.Repeat([]byte("x"), headerLength))
+	assert.EqualError(t, err, "invalid packet: must begin with 'TNBU'")
+}
+
+func TestTruncatedPayload(t *testing.T) {
+	t.Parallel()
+
+	dat, err := os.ReadFile("testdata/aes_snappy.dat")
+	require.NoError(t, err)
+	dat = dat[:len(dat)-1]
+
+	_, err = ParsePacket(dat)
+	assert.EqualError(t, err, "insufficient data: payload too short")
+
+	_, err = ReadPacket(bytes.NewReader(dat))
+	assert.EqualError(t, err, "insufficient data: unexpected EOF")
 }
 
 type decodeTestcase struct {

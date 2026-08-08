@@ -6,6 +6,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/binary"
+	"errors"
 	"io"
 	"net"
 
@@ -37,12 +38,11 @@ type Packet struct {
 // Use ParsePacket if you have already obtained a full copy of the packet.
 func ReadPacket(r io.Reader) (*Packet, error) {
 	head := make([]byte, headerLength)
-	n, err := r.Read(head)
-	if err != nil {
+	if _, err := io.ReadFull(r, head); err != nil {
+		if errors.Is(err, io.ErrUnexpectedEOF) {
+			return nil, errIncompletePacket("header too short")
+		}
 		return nil, err
-	}
-	if n != headerLength {
-		return nil, errIncompletePacket("header too short")
 	}
 
 	pkt := &Packet{}
@@ -68,6 +68,10 @@ func ParsePacket(body []byte) (*Packet, error) {
 	off, err := pkt.ReadHeader(body)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(body[off:]) < len(pkt.Payload) {
+		return nil, errIncompletePacket("payload too short")
 	}
 
 	copy(pkt.Payload, body[off:])
@@ -108,11 +112,11 @@ func (p *Packet) update(name headerField, data []byte) {
 	case headerPacketVersion:
 		p.PacketVersion = binary.BigEndian.Uint32(data)
 	case headerMAC:
-		p.MAC = net.HardwareAddr(data)
+		p.MAC = net.HardwareAddr(bytes.Clone(data))
 	case headerFlags:
 		p.Flags = flags(binary.BigEndian.Uint16(data))
 	case headerIV:
-		p.IV = data
+		p.IV = bytes.Clone(data)
 	case headerPayloadVersion:
 		p.PayloadVersion = binary.BigEndian.Uint32(data)
 	}

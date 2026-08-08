@@ -34,7 +34,10 @@ func main() {
 
 	data, err := pkt.Data(aesKey)
 	if err != nil {
-		log.Printf("error decrypting packet: %v", err)
+		log.Fatalf("error decrypting packet: %v", err)
+	}
+	if len(data) == 0 {
+		log.Fatal("packet contains no data")
 	}
 
 	switch data[0] {
