@@ -5,28 +5,16 @@ import (
 	"fmt"
 )
 
-type errUnknownField string
-
-func (err errUnknownField) Error() string {
-	return fmt.Sprintf("unknown field: %s", string(err))
-}
-
 type errInvalidPadding string
 
 func (err errInvalidPadding) Error() string {
 	return fmt.Sprintf("invalid padding: %s", string(err))
 }
 
-type errFlagNotSupported string
-
-func (err errFlagNotSupported) Error() string {
-	return fmt.Sprintf("unsupported flag: %s", string(err))
-}
-
 type errIncompletePacket string
 
 func (err errIncompletePacket) Error() string {
-	return fmt.Sprintf("insufficient data: %v", string(err))
+	return fmt.Sprintf("insufficient data: %s", string(err))
 }
 
 var (

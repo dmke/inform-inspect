@@ -180,8 +180,8 @@ func pkcs7unpad(b []byte) ([]byte, error) {
 	if n == 0 || n > len(b) {
 		return nil, errInvalidPadding("data is not padded")
 	}
-	for i := 0; i < n; i++ {
-		if b[len(b)-n+i] != c {
+	for _, pad := range b[len(b)-n:] {
+		if pad != c {
 			return nil, errInvalidPadding("structure invalid")
 		}
 	}

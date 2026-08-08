@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
-	"io/ioutil"
+	"os"
+
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -40,7 +41,7 @@ func (tc *decodeTestcase) Run(t *testing.T, parse func([]byte) (*Packet, error))
 
 	assert, require := assert.New(t), require.New(t)
 
-	dat, err := ioutil.ReadFile(tc.datFile)
+	dat, err := os.ReadFile(tc.datFile)
 	require.NoError(err)
 
 	packet, err := parse(dat)
@@ -62,7 +63,7 @@ func (tc *decodeTestcase) Run(t *testing.T, parse func([]byte) (*Packet, error))
 	data, err := packet.Data(validKey)
 	require.NoError(err)
 
-	jsonData := make(map[string]interface{})
+	jsonData := make(map[string]any)
 	assert.NoError(json.Unmarshal(data, &jsonData))
 	assert.Equal(tc.firmware, jsonData["version"])
 	assert.Equal(tc.model, jsonData["model"])
@@ -83,13 +84,13 @@ func TestDecode(t *testing.T) {
 		modelDisplay: "UAP-AC-Pro-Gen2",
 	}}
 
-	for i := range tt { //nolint:paralleltest
-		tc := tt[i]
-
+	for _, tc := range tt { //nolint:paralleltest
 		// wrap file contents in a reader and test ReadPacket
 		t.Run(tc.datFile+"_ReadPacket", func(t *testing.T) {
 			t.Parallel()
-			tc.Run(t, func(dat []byte) (*Packet, error) { return ReadPacket(bytes.NewReader(dat)) })
+			tc.Run(t, func(dat []byte) (*Packet, error) {
+				return ReadPacket(bytes.NewReader(dat))
+			})
 		})
 
 		// pass file contents directly to ParsePacket

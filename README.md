@@ -82,6 +82,16 @@ reproduction.
 
 [issues]: https://github.com/dmke/inform-inspect/issues
 
+## Development
+
+```
+make test   # go test -race -cover ./...
+make lint   # golangci-lint run
+make fmt    # golangci-lint fmt
+make tidy   # go mod tidy
+```
+
+
 ## Next steps
 
 Technically, you don't need to know the password in advance. This
