@@ -1,20 +1,26 @@
-> **Note: With the release of Unifi SDN Controller version 5.12.x the
-> inform package format has changed. As of now, the encryption scheme is
-> unknown and hence this package is considered defunkt.**
->
-> This basically affects all firmwares since at least v4.0.20 (maybe
-> even earlier versions).
->
-> Feel free to [open a new issue][] if you find clues on how to decipher
-> current inform packages.
-
-[open a new issue]: https://github.com/dmke/inform-inspect/issues/new
-
-
 # inform-inspect
 
 Inspector for Ubiquiti Unifi Inform Pakets. Useful for debugging or
 creating external statistics.
+
+
+## Packet formats
+
+With Unifi SDN Controller 5.12.x (device firmware v4.0.x and later) the
+inform packet format changed from AES-128-CBC to AES-128-GCM, using the
+packet's clear text header as additional authenticated data. Both are
+supported:
+
+| Flags                       | Encryption  | Compression |
+|:----------------------------|:------------|:------------|
+| `AESEncrypted \| SnappyCompressed` | AES-128-CBC | Snappy |
+| `AESEncrypted \| ZlibCompressed`   | AES-128-CBC | zlib   |
+| `AESEncrypted \| GCMMode \| ZlibCompressed` | AES-128-GCM | zlib |
+
+If you encounter a packet this library fails to decode, please
+[open a new issue][] and attach a BLOB for reproduction.
+
+[open a new issue]: https://github.com/dmke/inform-inspect/issues/new
 
 
 ## Setup

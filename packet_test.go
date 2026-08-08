@@ -76,7 +76,11 @@ func (tc *decodeTestcase) Run(t *testing.T, parse func([]byte) (*Packet, error))
 	invalidKey, err := hex.DecodeString("11111111111111111111111111111111")
 	require.NoError(err)
 	_, err = packet.Data(invalidKey)
-	assert.EqualError(err, "invalid padding: structure invalid")
+	if tc.flags&GCMMode != 0 {
+		assert.EqualError(err, "cipher: message authentication failed")
+	} else {
+		assert.EqualError(err, "invalid padding: structure invalid")
+	}
 
 	validKey, err := hex.DecodeString(tc.hexKey)
 	require.NoError(err)
@@ -100,6 +104,15 @@ func TestDecode(t *testing.T) {
 		flags:        AESEncrypted | SnappyCompressed,
 		mac:          "f0:9f:c2:79:63:90",
 		firmware:     "3.9.27.8537",
+		model:        "U7PG2",
+		modelDisplay: "UAP-AC-Pro-Gen2",
+	}, {
+		datFile: "testdata/gcm_zlib.dat",
+		hexKey:  "05223125e6b44aca0a0599551168d766",
+
+		flags:        AESEncrypted | GCMMode | ZlibCompressed,
+		mac:          "fc:ec:da:fc:c5:35",
+		firmware:     "4.0.66.10832",
 		model:        "U7PG2",
 		modelDisplay: "UAP-AC-Pro-Gen2",
 	}}
