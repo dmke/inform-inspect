@@ -1,4 +1,6 @@
-package inform // import "github.com/dmke/inform-inspect"
+// Package inform decodes Ubiquiti Unifi inform packets: it parses the
+// clear text header and decrypts/decompresses the payload.
+package inform
 
 import (
 	"bytes"
@@ -80,6 +82,9 @@ func ParsePacket(body []byte) (*Packet, error) {
 	return pkt, nil
 }
 
+// ReadHeader decodes the packet header from head and returns the number
+// of bytes consumed. It allocates the payload buffer, but does not fill
+// it. Both ReadPacket and ParsePacket call this for you.
 func (p *Packet) ReadHeader(head []byte) (n int, err error) {
 	if len(head) < headerLength {
 		return 0, errIncompletePacket("header too short")

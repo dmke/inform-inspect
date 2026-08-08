@@ -1,3 +1,5 @@
+// Command inform-inspect decrypts a captured Unifi inform packet and
+// prints its payload.
 package main
 
 import (

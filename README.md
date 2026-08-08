@@ -88,6 +88,26 @@ reproduction.
 
 [issues]: https://github.com/dmke/inform-inspect/issues
 
+## Library usage
+
+```go
+import inform "github.com/dmke/inform-inspect"
+
+// from an io.Reader (e.g. an http.Request body):
+pkt, err := inform.ReadPacket(r)
+
+// or from a []byte you already hold:
+pkt, err := inform.ParsePacket(body)
+
+// pkt.MAC is available before decryption, so the key can be
+// looked up on demand:
+data, err := pkt.Data(aesKey)
+```
+
+`Packet.Payload` holds the raw (still encrypted/compressed) bytes; use
+`Packet.Data` to get the cleartext.
+
+
 ## Development
 
 ```
