@@ -3,7 +3,7 @@ module github.com/dmke/inform-inspect
 go 1.25
 
 require (
-	github.com/klauspost/compress v1.19.2
+	github.com/klauspost/compress v1.20.0
 	github.com/stretchr/testify v1.12.1
 )
 
