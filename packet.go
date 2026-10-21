@@ -162,8 +162,8 @@ func snappyDecompress(data []byte) ([]byte, error) {
 	return snappy.Decode(nil, data)
 }
 
-// aesDecrypt decodes the payload with the given key. The key must be 16
-// bytes long.
+// aesDecrypt decodes the payload with the given key. The key, and in CBC
+// mode the IV, must be 16 bytes long.
 func aesDecrypt(key []byte, p *Packet, gcm bool) ([]byte, error) {
 	if len(key) != 16 {
 		return nil, errInvalidKey
@@ -172,6 +172,9 @@ func aesDecrypt(key []byte, p *Packet, gcm bool) ([]byte, error) {
 	ciphertext := bytes.Clone(p.Payload)
 	if !gcm && len(ciphertext)%aes.BlockSize != 0 {
 		return nil, errInvalidPadding("data is not padded")
+	}
+	if !gcm && len(p.IV) != aes.BlockSize {
+		return nil, errInvalidIV
 	}
 
 	// err would be a crypto.KeySizeError, which is handled above

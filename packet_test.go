@@ -171,6 +171,7 @@ func TestData(t *testing.T) {
 		"snappy":         {Packet{Flags: SnappyCompressed, Payload: snappied}, nil, plain, nil},
 		"short key":      {Packet{Flags: AESEncrypted, Payload: key}, key[:15], nil, errInvalidKey},
 		"unaligned CBC":  {Packet{Flags: AESEncrypted, Payload: key[:15]}, key, nil, errInvalidPadding("data is not padded")},
+		"short CBC IV":   {Packet{Flags: AESEncrypted, IV: key[:8], Payload: key}, key, nil, errInvalidIV},
 		"zlib header":    {Packet{Flags: ZlibCompressed, Payload: plain}, nil, nil, zlib.ErrHeader},
 		"zlib truncated": {Packet{Flags: ZlibCompressed, Payload: zlibbed[:len(zlibbed)-6]}, nil, nil, io.ErrUnexpectedEOF},
 		"snappy corrupt": {Packet{Flags: SnappyCompressed, Payload: plain}, nil, nil, snappy.ErrCorrupt},
