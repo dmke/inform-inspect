@@ -154,7 +154,7 @@ func (p *Packet) update(name headerField, data []byte) {
 	}
 }
 
-// Data deflates and decrypts the payload (if necessary).
+// Data decrypts and decompresses the payload (if necessary).
 func (p *Packet) Data(key []byte) (res []byte, err error) {
 	res = p.Payload
 

@@ -19,10 +19,12 @@ const (
 	AESEncrypted     flags = 1 << iota // packet's payload is encrypted with AES (unless specified with GCMMode, it's in CBC mode)
 	ZlibCompressed                     // the packet's payload is compressed
 	SnappyCompressed                   // payload is compressed with Google's snappy algorithm
-	GCMMode                            // payload is is AES-GCM encrypted
+	GCMMode                            // payload is AES-GCM encrypted
 
-	Encrypted  = AESEncrypted   // deprecated: see AESEncrypted
-	Compressed = ZlibCompressed // deprecated: see ZlibCompressed
+	// Deprecated: use AESEncrypted.
+	Encrypted = AESEncrypted
+	// Deprecated: use ZlibCompressed.
+	Compressed = ZlibCompressed
 )
 
 // fieldOrder statically describes a packet's fields, their order and the
