@@ -1,7 +1,5 @@
 package inform
 
-import "fmt"
-
 type headerField byte
 
 const (
@@ -13,26 +11,6 @@ const (
 	headerPayloadVersion
 	headerPayloadLength
 )
-
-func (f headerField) String() string {
-	switch f {
-	case headerMagic:
-		return "Magic"
-	case headerPacketVersion:
-		return "PacketVersion"
-	case headerMAC:
-		return "MAC"
-	case headerFlags:
-		return "Flags"
-	case headerIV:
-		return "IV"
-	case headerPayloadVersion:
-		return "PayloadVersion"
-	case headerPayloadLength:
-		return "PayloadLength"
-	}
-	return fmt.Sprintf("%%!unknown(%02x)", byte(f))
-}
 
 type flags uint16
 
