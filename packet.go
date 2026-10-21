@@ -235,8 +235,9 @@ func pkcs7unpad(b []byte) ([]byte, error) {
 	}
 	c := b[len(b)-1]
 	n := int(c)
-	if n == 0 || n > len(b) {
-		return nil, errInvalidPadding("data is not padded")
+	// same error as below, so the reason leaks nothing about the plaintext
+	if n == 0 || n > aes.BlockSize || n > len(b) {
+		return nil, errInvalidPadding("structure invalid")
 	}
 	for _, pad := range b[len(b)-n:] {
 		if pad != c {

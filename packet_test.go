@@ -271,8 +271,9 @@ func TestPKCS7Unpad(t *testing.T) {
 		"one pad byte":   {[]byte{7, 7, 1}, []byte{7, 7}, nil},
 		"only padding":   {[]byte{2, 2}, []byte{}, nil},
 		"empty":          {nil, nil, errInvalidPadding("no data")},
-		"zero pad byte":  {[]byte{7, 7, 0}, nil, errInvalidPadding("data is not padded")},
-		"pad too long":   {[]byte{7, 3}, nil, errInvalidPadding("data is not padded")},
+		"zero pad byte":  {[]byte{7, 7, 0}, nil, errInvalidPadding("structure invalid")},
+		"pad over data":  {[]byte{7, 3}, nil, errInvalidPadding("structure invalid")},
+		"pad over block": {bytes.Repeat([]byte{17}, 17), nil, errInvalidPadding("structure invalid")},
 		"pad mismatched": {[]byte{7, 3, 2}, nil, errInvalidPadding("structure invalid")},
 	} {
 		t.Run(name, func(t *testing.T) {
