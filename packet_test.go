@@ -3,17 +3,38 @@ package inform
 import (
 	"bytes"
 	"compress/zlib"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"io"
 	"os"
-
 	"testing"
 
 	"github.com/klauspost/compress/snappy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// header returns a packet header with valid magic and the given payload
+// length; all other fields are zero.
+func header(length int) []byte {
+	head := make([]byte, headerLength)
+	copy(head, "TNBU")
+	binary.BigEndian.PutUint32(head[headerLength-4:], uint32(length))
+	return head
+}
+
+// zlibCompress returns data compressed with zlib.
+func zlibCompress(t *testing.T, data []byte) []byte {
+	t.Helper()
+
+	var buf bytes.Buffer
+	z := zlib.NewWriter(&buf)
+	_, err := z.Write(data)
+	require.NoError(t, err)
+	require.NoError(t, z.Close())
+	return buf.Bytes()
+}
 
 func TestInvalidPacket(t *testing.T) {
 	t.Parallel()
@@ -33,9 +54,7 @@ func TestInvalidPacket(t *testing.T) {
 	_, err = ReadPacket(bytes.NewReader(bytes.Repeat([]byte("x"), headerLength)))
 	assert.EqualError(t, err, "invalid packet: must begin with 'TNBU'")
 
-	// valid magic, but all other header fields zero
-	head := append([]byte("TNBU"), make([]byte, headerLength-4)...)
-	_, err = ParsePacket(head)
+	_, err = ParsePacket(header(0))
 	assert.EqualError(t, err, "insufficient data: header does not define payload length")
 }
 
@@ -150,12 +169,7 @@ func TestData(t *testing.T) {
 
 	plain := []byte(`{"model":"U7PG2"}`)
 
-	var zbuf bytes.Buffer
-	z := zlib.NewWriter(&zbuf)
-	_, err := z.Write(plain)
-	require.NoError(t, err)
-	require.NoError(t, z.Close())
-	zlibbed := zbuf.Bytes()
+	zlibbed := zlibCompress(t, plain)
 	snappied := snappy.Encode(nil, plain)
 
 	key := make([]byte, 16)
@@ -184,6 +198,53 @@ func TestData(t *testing.T) {
 			assert.Equal(t, tc.want, got, "unexpected data")
 		})
 	}
+}
+
+func TestPayloadLimit(t *testing.T) {
+	t.Parallel()
+
+	atLimit := make([]byte, defaultMaxPayloadSize)
+	overLimit := make([]byte, defaultMaxPayloadSize+1)
+
+	_, err := ParsePacket(append(header(len(atLimit)), atLimit...))
+	assert.NoError(t, err, "payload at limit rejected")
+
+	// rejected before allocating the payload buffer
+	_, err = ParsePacket(header(len(overLimit)))
+	assert.ErrorIs(t, err, errPayloadTooLarge, "payload over limit accepted")
+
+	for name, tc := range map[string]struct {
+		flags    flags
+		compress func(*testing.T, []byte) []byte
+	}{
+		"snappy": {SnappyCompressed, func(_ *testing.T, b []byte) []byte { return snappy.Encode(nil, b) }},
+		"zlib":   {ZlibCompressed, zlibCompress},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			pkt := Packet{Flags: tc.flags, Payload: tc.compress(t, atLimit)}
+			got, err := pkt.Data(nil)
+			require.NoError(t, err, "decompressed payload at limit rejected")
+			assert.Equal(t, len(atLimit), len(got), "decompressed payload truncated")
+
+			pkt.Payload = tc.compress(t, overLimit)
+			_, err = pkt.Data(nil)
+			assert.ErrorIs(t, err, errPayloadTooLarge, "decompressed payload over limit accepted")
+		})
+	}
+}
+
+// not parallel, it changes the limit for the whole package
+func TestSetMaxPayloadSize(t *testing.T) {
+	SetMaxPayloadSize(8)
+	t.Cleanup(func() { SetMaxPayloadSize(defaultMaxPayloadSize) })
+
+	_, err := ParsePacket(append(header(8), make([]byte, 8)...))
+	assert.NoError(t, err, "payload at lowered limit rejected")
+
+	_, err = ParsePacket(append(header(9), make([]byte, 9)...))
+	assert.ErrorIs(t, err, errPayloadTooLarge, "payload over lowered limit accepted")
 }
 
 func TestPKCS7Unpad(t *testing.T) {

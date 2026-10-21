@@ -102,6 +102,10 @@ pkt, err := inform.ParsePacket(body)
 // pkt.MAC is available before decryption, so the key can be
 // looked up on demand:
 data, err := pkt.Data(aesKey)
+
+// payloads over 4 MiB, as sent or decompressed, fail to decode;
+// raise or lower the limit before decoding:
+inform.SetMaxPayloadSize(16 << 20)
 ```
 
 `Packet.Payload` holds the raw (still encrypted/compressed) bytes; use

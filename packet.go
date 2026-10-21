@@ -11,6 +11,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"sync/atomic"
 
 	"github.com/klauspost/compress/snappy"
 )
@@ -26,6 +27,22 @@ type Packet struct {
 	Payload        []byte           // payload (usually JSON)
 
 	rawHeader []byte // rawHeader, needed as AAD for AES-GCM decryption
+}
+
+// defaultMaxPayloadSize is far above real payloads, which are a few KiB.
+const defaultMaxPayloadSize = 4 << 20
+
+var maxPayloadSize atomic.Int64
+
+func init() {
+	maxPayloadSize.Store(defaultMaxPayloadSize)
+}
+
+// SetMaxPayloadSize limits packet payloads to n bytes, both as sent and
+// once decompressed; larger ones fail to decode. The default is 4 MiB.
+// It is safe to call while other goroutines decode packets.
+func SetMaxPayloadSize(n int) {
+	maxPayloadSize.Store(int64(n))
 }
 
 // ReadPacket tries to decode the input into a Packet instance.
@@ -84,7 +101,8 @@ func ParsePacket(body []byte) (*Packet, error) {
 
 // ReadHeader decodes the packet header from head and returns the number
 // of bytes consumed. It allocates the payload buffer, but does not fill
-// it. Both ReadPacket and ParsePacket call this for you.
+// it, and rejects payloads over the limit set with SetMaxPayloadSize.
+// Both ReadPacket and ParsePacket call this for you.
 func (p *Packet) ReadHeader(head []byte) (n int, err error) {
 	if len(head) < headerLength {
 		return 0, errIncompletePacket("header too short")
@@ -100,6 +118,9 @@ func (p *Packet) ReadHeader(head []byte) (n int, err error) {
 			}
 		case headerPayloadLength:
 			val := binary.BigEndian.Uint32(curr)
+			if int64(val) > maxPayloadSize.Load() {
+				return n, errPayloadTooLarge
+			}
 			p.Payload = make([]byte, val)
 		default:
 			p.update(f.name, curr)
@@ -157,8 +178,17 @@ func (p *Packet) Data(key []byte) (res []byte, err error) {
 	return
 }
 
-// snappyDecompress deflates data using Snappy.
+// snappyDecompress decompresses data using Snappy, up to the payload
+// size limit.
 func snappyDecompress(data []byte) ([]byte, error) {
+	// Decode allocates the claimed length before validating the data
+	n, err := snappy.DecodedLen(data)
+	if err != nil {
+		return nil, err
+	}
+	if int64(n) > maxPayloadSize.Load() {
+		return nil, errPayloadTooLarge
+	}
 	return snappy.Decode(nil, data)
 }
 
@@ -213,7 +243,8 @@ func pkcs7unpad(b []byte) ([]byte, error) {
 	return b[:len(b)-n], nil
 }
 
-// zlibDecompress deflates data using zlib.
+// zlibDecompress decompresses data using zlib, up to the payload size
+// limit.
 func zlibDecompress(r io.Reader) ([]byte, error) {
 	z, err := zlib.NewReader(r)
 	if err != nil {
@@ -221,9 +252,14 @@ func zlibDecompress(r io.Reader) ([]byte, error) {
 	}
 	defer z.Close()
 
-	var res bytes.Buffer
-	if _, err = io.Copy(&res, z); err != nil {
+	// one byte over the limit tells a payload at the limit from a larger one
+	limit := maxPayloadSize.Load()
+	res, err := io.ReadAll(io.LimitReader(z, limit+1))
+	if err != nil {
 		return nil, err
 	}
-	return res.Bytes(), nil
+	if int64(len(res)) > limit {
+		return nil, errPayloadTooLarge
+	}
+	return res, nil
 }
