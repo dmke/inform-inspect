@@ -4,12 +4,16 @@ package main
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 
 	inform "github.com/dmke/inform-inspect"
 )
+
+var errNoData = errors.New("packet contains no data")
 
 func main() {
 	if len(os.Args[1:]) != 2 {
@@ -18,34 +22,45 @@ func main() {
 		os.Exit(1)
 	}
 
-	aesKey, err := hex.DecodeString(os.Args[1])
-	if err != nil || len(aesKey) != 16 {
-		log.Fatalf("key must be 32 character long and hex-encoded: %v", err)
+	if err := run(os.Args[1], os.Args[2], os.Stdout); err != nil {
+		log.Fatal(err)
+	}
+}
+
+// run decrypts the packet in the file at path with the hex-encoded key
+// and writes its payload to w: verbatim if it looks like JSON, as a hex
+// dump otherwise.
+func run(key, path string, w io.Writer) error {
+	aesKey, err := hex.DecodeString(key)
+	if err != nil {
+		return fmt.Errorf("key must be 32 character long and hex-encoded: %w", err)
 	}
 
-	pktFile, err := os.Open(os.Args[2])
+	pktFile, err := os.Open(path)
 	if err != nil {
-		log.Fatalf("error opening %q: %v", os.Args[2], err)
+		return fmt.Errorf("error opening %q: %w", path, err)
 	}
 	defer pktFile.Close()
 
 	pkt, err := inform.ReadPacket(pktFile)
 	if err != nil {
-		log.Fatalf("cannot read packet: %v", err)
+		return fmt.Errorf("cannot read packet: %w", err)
 	}
 
+	// the key length is checked here, and only for encrypted packets
 	data, err := pkt.Data(aesKey)
 	if err != nil {
-		log.Fatalf("error decrypting packet: %v", err)
+		return fmt.Errorf("error decrypting packet: %w", err)
 	}
 	if len(data) == 0 {
-		log.Fatal("packet contains no data")
+		return errNoData
 	}
 
 	switch data[0] {
 	case '{', '[':
-		fmt.Print(string(data))
+		_, err = w.Write(data)
 	default:
-		fmt.Print(hex.Dump(data))
+		_, err = io.WriteString(w, hex.Dump(data))
 	}
+	return err
 }
