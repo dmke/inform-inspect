@@ -127,8 +127,10 @@ func (tc *decodeTestcase) Run(t *testing.T, parse func([]byte) (*Packet, error))
 
 	validKey, err := hex.DecodeString(tc.hexKey)
 	require.NoError(err)
+	payload := bytes.Clone(packet.Payload)
 	data, err := packet.Data(validKey)
 	require.NoError(err)
+	assert.Equal(payload, packet.Payload, "Data modified the payload")
 
 	jsonData := make(map[string]any)
 	assert.NoError(json.Unmarshal(data, &jsonData))

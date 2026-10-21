@@ -202,8 +202,7 @@ func aesDecrypt(key []byte, p *Packet, gcm bool) ([]byte, error) {
 		return nil, errInvalidKey
 	}
 
-	ciphertext := bytes.Clone(p.Payload)
-	if !gcm && len(ciphertext)%aes.BlockSize != 0 {
+	if !gcm && len(p.Payload)%aes.BlockSize != 0 {
 		return nil, errInvalidPadding("data is not padded")
 	}
 	if !gcm && len(p.IV) != aes.BlockSize {
@@ -219,13 +218,14 @@ func aesDecrypt(key []byte, p *Packet, gcm bool) ([]byte, error) {
 			return nil, err
 		}
 		// GCM is a stream mode, hence no padding to remove
-		return aead.Open(nil, p.IV, ciphertext, p.rawHeader)
+		return aead.Open(nil, p.IV, p.Payload, p.rawHeader)
 	}
 
+	plaintext := make([]byte, len(p.Payload))
 	mode := cipher.NewCBCDecrypter(block, p.IV)
-	mode.CryptBlocks(ciphertext, ciphertext)
+	mode.CryptBlocks(plaintext, p.Payload)
 
-	return pkcs7unpad(ciphertext)
+	return pkcs7unpad(plaintext)
 }
 
 // pkcs7unpad removes padding from a decoded stream.
