@@ -2,12 +2,15 @@ package inform
 
 import (
 	"bytes"
+	"compress/zlib"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"os"
 
 	"testing"
 
+	"github.com/klauspost/compress/snappy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,6 +29,14 @@ func TestInvalidPacket(t *testing.T) {
 
 	_, err = ParsePacket(bytes.Repeat([]byte("x"), headerLength))
 	assert.EqualError(t, err, "invalid packet: must begin with 'TNBU'")
+
+	_, err = ReadPacket(bytes.NewReader(bytes.Repeat([]byte("x"), headerLength)))
+	assert.EqualError(t, err, "invalid packet: must begin with 'TNBU'")
+
+	// valid magic, but all other header fields zero
+	head := append([]byte("TNBU"), make([]byte, headerLength-4)...)
+	_, err = ParsePacket(head)
+	assert.EqualError(t, err, "insufficient data: header does not define payload length")
 }
 
 func TestTruncatedPayload(t *testing.T) {
@@ -130,6 +141,71 @@ func TestDecode(t *testing.T) {
 		t.Run(tc.datFile+"_ParsePacket", func(t *testing.T) {
 			t.Parallel()
 			tc.Run(t, ParsePacket)
+		})
+	}
+}
+
+func TestData(t *testing.T) {
+	t.Parallel()
+
+	plain := []byte(`{"model":"U7PG2"}`)
+
+	var zbuf bytes.Buffer
+	z := zlib.NewWriter(&zbuf)
+	_, err := z.Write(plain)
+	require.NoError(t, err)
+	require.NoError(t, z.Close())
+	zlibbed := zbuf.Bytes()
+	snappied := snappy.Encode(nil, plain)
+
+	key := make([]byte, 16)
+
+	for name, tc := range map[string]struct {
+		pkt     Packet
+		key     []byte
+		want    []byte
+		wantErr error
+	}{
+		"plain":          {Packet{Payload: plain}, nil, plain, nil},
+		"zlib":           {Packet{Flags: ZlibCompressed, Payload: zlibbed}, nil, plain, nil},
+		"snappy":         {Packet{Flags: SnappyCompressed, Payload: snappied}, nil, plain, nil},
+		"short key":      {Packet{Flags: AESEncrypted, Payload: key}, key[:15], nil, errInvalidKey},
+		"unaligned CBC":  {Packet{Flags: AESEncrypted, Payload: key[:15]}, key, nil, errInvalidPadding("data is not padded")},
+		"zlib header":    {Packet{Flags: ZlibCompressed, Payload: plain}, nil, nil, zlib.ErrHeader},
+		"zlib truncated": {Packet{Flags: ZlibCompressed, Payload: zlibbed[:len(zlibbed)-6]}, nil, nil, io.ErrUnexpectedEOF},
+		"snappy corrupt": {Packet{Flags: SnappyCompressed, Payload: plain}, nil, nil, snappy.ErrCorrupt},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := tc.pkt.Data(tc.key)
+			assert.ErrorIs(t, err, tc.wantErr, "unexpected error")
+			assert.Equal(t, tc.want, got, "unexpected data")
+		})
+	}
+}
+
+func TestPKCS7Unpad(t *testing.T) {
+	t.Parallel()
+
+	for name, tc := range map[string]struct {
+		in      []byte
+		want    []byte
+		wantErr error
+	}{
+		"one pad byte":   {[]byte{7, 7, 1}, []byte{7, 7}, nil},
+		"only padding":   {[]byte{2, 2}, []byte{}, nil},
+		"empty":          {nil, nil, errInvalidPadding("no data")},
+		"zero pad byte":  {[]byte{7, 7, 0}, nil, errInvalidPadding("data is not padded")},
+		"pad too long":   {[]byte{7, 3}, nil, errInvalidPadding("data is not padded")},
+		"pad mismatched": {[]byte{7, 3, 2}, nil, errInvalidPadding("structure invalid")},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := pkcs7unpad(tc.in)
+			assert.ErrorIs(t, err, tc.wantErr, "unexpected error")
+			assert.Equal(t, tc.want, got, "unexpected data")
 		})
 	}
 }
