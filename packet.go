@@ -71,7 +71,10 @@ func ReadPacket(r io.Reader) (*Packet, error) {
 		return nil, err
 	}
 	if _, err := io.ReadFull(r, pkt.Payload); err != nil {
-		return nil, errIncompletePacket(err.Error())
+		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+			return nil, errIncompletePacket("payload too short")
+		}
+		return nil, err
 	}
 
 	return pkt, nil

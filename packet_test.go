@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"testing"
+	"testing/iotest"
 
 	"github.com/klauspost/compress/snappy"
 	"github.com/stretchr/testify/assert"
@@ -69,7 +70,19 @@ func TestTruncatedPayload(t *testing.T) {
 	assert.EqualError(t, err, "insufficient data: payload too short")
 
 	_, err = ReadPacket(bytes.NewReader(dat))
-	assert.EqualError(t, err, "insufficient data: unexpected EOF")
+	assert.EqualError(t, err, "insufficient data: payload too short")
+
+	_, err = ReadPacket(bytes.NewReader(dat[:headerLength]))
+	assert.EqualError(t, err, "insufficient data: payload too short", "missing payload")
+
+	// other read errors pass through, e.g. for HTTP handlers to tell a
+	// timeout from a broken packet
+	r := io.MultiReader(
+		bytes.NewReader(dat[:headerLength]),
+		iotest.ErrReader(os.ErrDeadlineExceeded),
+	)
+	_, err = ReadPacket(r)
+	assert.ErrorIs(t, err, os.ErrDeadlineExceeded, "read error lost")
 }
 
 type decodeTestcase struct {
